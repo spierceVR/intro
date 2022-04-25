@@ -1,27 +1,32 @@
 # Setup plotting
 import matplotlib.pyplot as plt
 plt.style.use('seaborn-whitegrid')
+
+
 # Set Matplotlib defaults
 plt.rc('figure', autolayout=True)
 plt.rc('axes', labelweight='bold', labelsize='large',
        titleweight='bold', titlesize=18, titlepad=10)
 plt.rc('animation', html='html5')
 
-#import data
+
+# Load the dataset
 import pandas as pd
 shrooms = pd.read_csv('./input/mushrooms.csv')
 
 
-# binary encoding on class column
+# Binary encoding on class column
 shrooms['class'] = shrooms['class'].map({'p': 0, 'e': 1})
 from IPython.display import display
 display(shrooms.head())
 
-#input and output sets
+
+# Create input and output sets
 X = shrooms.copy()
 y = X.pop('class')
 
-#preprocessing
+
+# Set up preprocessing pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import SimpleImputer
@@ -47,24 +52,22 @@ preprocessor = make_column_transformer(
     (transformer_cat, features_cat)
 )
 
-# stratify - make sure classes are evenly represented across splits
+# Stratify - make sure classes are evenly represented across splits
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, stratify=y, train_size=0.75)
 
 
+# Perform preprocessing on the training and validation data
 X_train = preprocessor.fit_transform(X_train)
 X_valid = preprocessor.transform(X_valid)
 X_train = X_train.toarray()
 X_valid = X_valid.toarray()
 
-input_shape = [X_train.shape[1]]
-import numpy
-with numpy.printoptions(threshold=numpy.inf):
-    print(X_train)
 
-
+# Setup ML model
 from tensorflow import keras
 from tensorflow.keras import layers, Sequential, callbacks
 
+input_shape = [X_train.shape[1]]
 model = keras.Sequential([
     layers.BatchNormalization(input_shape=input_shape),
     layers.Dense(256, activation='relu'),
@@ -82,13 +85,14 @@ model.compile(
     metrics=['binary_accuracy'],
 )
 
-
 early_stopping = keras.callbacks.EarlyStopping(
     patience=10,
     min_delta=0.001,
     restore_best_weights=True,
 )
 
+
+# Train for supplied amount of epochs
 history = model.fit(
     X_train, y_train,
     validation_data=(X_valid, y_valid),
@@ -99,25 +103,17 @@ history = model.fit(
 )
 
 
+# Plot results of model training
 history_df = pd.DataFrame(history.history)
-# Start the plot at epoch 5
 history_df.loc[0:, ['loss', 'val_loss']].plot()
 history_df.loc[0:, ['binary_accuracy', 'val_binary_accuracy']].plot()
 
 print(("Best Validation Loss: {:0.4f}" +\
       "\nBest Validation Accuracy: {:0.4f}")\
       .format(history_df['val_loss'].min(), 
-              history_df['val_binary_accuracy'].max()))
-
+              history_df['val_binary_accuracy'].max())
+    )
+    
 plt.show()
 
 # model.save('saved_model/my_model')
-
-# make some predictions with a user selected row in the dataset
-
-# p	x	s	n	t	p	f	c	n	k	e	e	s	s	w	w	p	w	o	p	k	s	u
-X_predict = pd.DataFrame(["p","x","s","n","t","p","f","c","n","k","e","e","s","s","w","w","p","w","o","p","k","s","u"])
-X_predict.pop(0)
-X_predict = preprocessor.transform(X_predict)
-X_predict = X_predict.toarray()
-model.predict(X_predict)
